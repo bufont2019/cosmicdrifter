@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Drifter - Expanded Encounters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif; background-color: #0a0f18; color: #e0e0e0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; overflow: hidden;
+        }
+        #gameContainer {
+            display: flex; flex-direction: column; align-items: center;
+            border: 2px solid #303848; border-radius: 10px; background-color: #101828;
+            box-shadow: 0 0 20px rgba(0, 128, 255, 0.3); position: relative;
+            width: 1000px; height: 750px;
+        }
+        canvas { background-color: #05080d; border-radius: 8px; cursor: crosshair; display: block; }
+        #uiContainer {
+            width: 100%; padding: 10px 15px; background-color: #182030;
+            border-top: 2px solid #303848; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
+        }
+        #eventLog {
+            height: 100px; background-color: #0c121c; border: 1px solid #202838;
+            border-radius: 6px; padding: 10px; overflow-y: auto; font-size: 0.85rem; color: #b0c4de;
+        }
+        #eventLog p { margin: 0 0 6px 0; line-height: 1.3; }
+        #eventLog p:last-child { margin-bottom: 0; }
+        .event-title, .system-info-title { font-family: 'Orbitron', sans-serif; color: #64b5f6; font-weight: bold; margin-bottom: 4px !important; font-size:0.9em; }
+        .system-info { color: #9cb0c8; font-style: italic; font-size:0.8em; }
+        .event-choice {
+            background-color: #2563eb; color: white; padding: 8px 12px; border-radius: 5px;
+            margin-top: 10px; cursor: pointer; text-align: center; transition: background-color 0.3s;
+            display: inline-block; margin-right: 10px; margin-bottom: 5px;
+        }
+        .event-choice:hover { background-color: #1d4ed8; }
+        #hud { display: flex; justify-content: space-around; padding: 10px 0; font-family: 'Orbitron', sans-serif; color: #7dd3fc; width: 100%;}
+        #hud span { background-color: rgba(30, 41, 59, 0.5); padding: 5px 10px; border-radius: 4px; font-size: 0.9em;}
+        #inventoryDisplay { font-size: 0.85rem; }
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.active { display: flex; opacity: 1; visibility: visible; }
+        .modal-content {
+            background-color: #182030; padding: 25px; border-radius: 8px; border: 1px solid #303848;
+            box-shadow: 0 0 30px rgba(0,191,255,0.5); width: 90%; max-width: 550px; text-align: center;
+        }
+        .modal-title { font-family: 'Orbitron', sans-serif; color: #64b5f6; font-size: 1.5rem; margin-bottom: 15px; }
+        .modal-body { font-size: 1rem; color: #c0d0e0; margin-bottom: 20px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+        .modal-button { background-color: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: background-color 0.3s; }
+        .modal-button:hover { background-color: #1d4ed8; }
+        #solarSystemViewScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #05080d; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            padding: 0; box-sizing: border-box; z-index: 900; border-radius: 10px;
+            overflow: hidden;
+        }
+        #solarSystemViewScreen.active { display: flex; }
+        #systemImageContainer {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        #systemImageContainer img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .loading-text-system {
+            font-family: 'Orbitron', sans-serif; font-size: 1.5rem; color: #9ca3af;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        .system-view-title-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            font-family: 'Orbitron', sans-serif; color: rgba(224, 224, 224, 0.9); font-size: 2rem;
+            text-shadow: 0 0 10px rgba(0,0,0,1), 0 0 15px rgba(0,0,0,0);
+            background-color: rgba(10, 15, 24, 0.5); padding: 5px 15px;
+            border-radius: 5px;
+        }
+        #planetDetailsOverlay {
+            position: absolute; bottom: 70px; left: 20px;
+            background-color: rgba(16, 24, 40, 0.85); border: 8px solid #303848; border-radius: 8px;
+            padding: 15px; max-width: 300px; max-height: 40%;
+            overflow-y: auto; color: #d1d5db;
+        }
+        #planetDetailsOverlay h4 {
+            font-family: 'Orbitron', sans-serif; color: #93c5fd; font-size: 1.1rem;
+            margin-bottom: 10px; border-bottom: 2px solid #4b5563; padding-bottom: 5px;
+        }
+        #planetDetailsOverlay ul { list-style: none; padding: 0; margin: 0; }
+        #planetDetailsOverlay li { font-size: 0.85rem; margin-bottom: 6px; color: #bec5d1; }
+        .system-view-footer-overlay {
+            position: absolute; bottom: 15px;
+ left: 50%; transform: translateX(-50%);
+            text-align: center;
+}
+        }
+        .system-view-button {
+            background-color: #3b82f6; color: white; padding: 10px 20px; border: none;
+            border-radius: 5px; cursor: pointer; font-size: 1rem; font-family: 'Orbitron', sans-serif;
+            transition: background-color: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .system-view-button:hover { background-color: #2563eb; }
+        .system-view-button:disabled { background-color: #4b5563; cursor: not-allowed;}
+        #titleScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0a0f18; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            z-index: 2000;
+        }
+        #titleScreen h1 {
+            font-family: 'Orbitron', sans-serif; font-size: 4rem; color: #64b5f6;
+            margin-bottom: 1rem; text-shadow: 0 0 15px rgba(100, 181, 246, 0.8), 0 0 30px rgba(100, 181, 246, 0.5);
+        }
+        #titleScreen p {
+            font-size: 1.2rem; color: #b0c4de; margin-bottom: 2rem;
+        }
+        #startGameButton {
+            background-color: #3b82f6; color: white; padding: 15px 30px; border: none;
+            border-radius: 8px; cursor: pointer; font-size: 1.5rem; font-family: 'Orbitron', sans-serif;
+            transition: background-color 0.3s, transform: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        #startGameButton:hover {
+            background-color: #2563eb; transform: scale(1.05);
+        }
+        #gameOverScreen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #gameOverScreen h1 {
+            font-family: 'Orbitron', sans-serif; font-size: 3rem; color: #ef4444;
+        }
+        #gameOverScreen p {
+            font-size: 1.2rem; color: #b0c4de; margin: 20px 0;
+        }
+        #gameOverScreen button {
+            background-color: #ef4444; color: white; padding: 10px 20px; border: none;
+            border-radius: 5px; cursor: pointer; font-size: 1rem; font-family: 'Orbitron', sans-serif;
+        }
+        #gameOverScreen button:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div id="titleScreen">
+        <h1>COSMIC DRIFTER</h1>
+        <p>A Galactic Exploration Adventure</p>
+        <button id="startGameButton">START JOURNEY</button>
+    </div>
+
+    <div id="gameContainer" style="display: none;">
+        <div id="hud">
+            <span>Fuel: <span id="fuelDisplay">100</span></span>
+            <span>Scrap: <span id="scrapDisplay">50</span></span>
+            <span>Hull: <span id="hullDisplay">100%</span></span>
+            <span>Systems Visited: <span id="systemsVisitedDisplay">0</span></span>
+            <span>Inventory: <span id="inventoryDisplay">None</span></span>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="uiContainer">
+            <div id="eventLog">
+                <p class="event-title">Log Initialized</p>
+                <p>Welcome to Cosmic Drifter. Your journey begins. Click a beacon to travel.</p>
+            </div>
+        </div>
+
+        <div id="solarSystemViewScreen">
+            <div id="systemImageContainer">
+                <span class="loading-text-system">Generating System View...</span>
+            </div>
+            <h2 id="systemViewTitleOverlay" class="system-view-title-overlay">System Name</h2>
+            <div id="planetDetailsOverlay">
+                <h4>Planetary Scan</h4>
+                <ul id="planetDetailsList"></ul>
+            </div>
+            <div class="system-view-footer-overlay">
+                <button id="proceedFromSystemViewButton" class="system-view-button">Engage Local Scanners</button>
+            </div>
+        </div>
+    </div>
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="modal-title">Event Triggered!</h2>
+            <div id="modalBody">
+                <p id="modalText">Event description will appear here.</p>
+            </div>
+            <div id="modalChoices"></div>
+            <button id="modalCloseButton" class="modal-button mt-4">Continue</button>
+        </div>
+    </div>
+    <div id="gameOverScreen">
+        <h1>Game Over</h1>
+        <p id="gameOverMessage">Your ship has been destroyed or run out of fuel.</p>
+        <button id="restartGameButton" class="system-view-button">Restart Journey</button>
+    </div>
+
+    <script>
+        const USER_SHIP_IMAGE_URL = null;
+
+        const CONFIG = {
+            canvasWidth: 1000, canvasHeight: 600, numBeacons: 150, beaconRadius: 8,
+            beaconColor: '#4ade80', beaconHoverColor: '#86efac',
+            shipColor: '#facc15', shipRadius: 12, shipSpeed: 2,
+            shipSpriteWidth: 50, shipSpriteHeight: 50,
+            connectionLineColor: 'rgba(100,116,139,0.2)', maxConnectionsPerBeacon: 4,
+            minBeaconDistance: 60, fuelPerJump: 5, maxPlanetsPerSystem: 5, minPlanetsPerSystem: 0,
+            maxInventoryItems: 10, upgradeCost: { fuelEfficiency: 30, hullStrength: 50 }
+        };
+
+        const PLANET_TYPES = [
+            { name: "Terran", color: "#60a5fa", keywords: "continents, oceans, atmosphere" },
+            { name: "Gas Giant", color: "#f97316", keywords: "swirling bands, rings, massive" },
+            { name: "Ice Giant", color: "#a5f3fc", keywords: "icy, pale blue, distant" },
+            { name: "Volcanic", color: "#ef4444", keywords: "lava flows, magma, smoke plumes" },
+            { name: "Barren Rock", color: "#a8a29e", keywords: "craters, desolate, rocky" },
+            { name: "Oceanic", color: "#22d3ee", keywords: "global ocean, islands, deep blue" },
+            { name: "Desert", color: "#f59e0b", keywords: "sand dunes, arid, canyons" },
+            { name: "Frozen", color: "#e0f2fe", keywords: "ice sheets, glaciers, frozen tundra" }
+        ];
+        const PLANET_SIZES = ["Small", "Medium", "Large", "Gigantic"];
+        const NAME_PREFIXES = ["Alpha", "Beta", "Gamma", "New", "Prime", "Neo", "Nova", "Terra", "Xylo", "Zeta"];
+        const NAME_SUFFIXES = ["Centauri", "Prime", "Minor", "Major", "Secundus", "Colony", "Outpost", "Reach", "Haven", "B", "C", "D"];
+        const STAR_NAMES_ADJ = ["Crimson", "Azure", "Golden", "Emerald", "Silver", "Whispering", "Forgotten", "Shining", "Distant"];
+        const STAR_NAMES_NOUN = ["Sun", "Star", "Nebula", "Void", "Expanse", "Cluster", "Core", "Ridge", "Passage", "Gate"];
+        const STAR_TYPES = ["yellow dwarf", "red giant", "blue supergiant", "white dwarf", "neutron star", "pulsar", "binary star system"];
+        const ITEMS = [
+            { id: "repair_kit", name: "Repair Kit", description: "Restores 10 hull points." },
+            { id: "fuel_cell", name: "Fuel Cell", description: "Adds 15 fuel units." }
+        ];
+
+        let gameState = {
+            beacons: [],
+            ship: {
+                x: CONFIG.canvasWidth / 2, y: CONFIG.canvasHeight / 2,
+                radius: CONFIG.shipRadius, color: CONFIG.shipColor,
+                targetBeacon: null, currentBeacon: null, isMoving: false,
+                mapSprite: new Image(), mapSpriteLoaded: false, mapSpriteUrl: null
+            },
+            playerResources: { fuel: 100, scrap: 50, hull: 100, systemsVisited: 0 },
+            inventory: [],
+            shipUpgrades: { fuelEfficiency: 1, hullStrength: 1 },
+            hoveredBeacon: null,
+            currentSystemImage: null,
+            isGeneratingSystemImage: false
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const eventLog = document.getElementById('eventLog');
+        const fuelDisplay = document.getElementById('fuelDisplay');
+        const scrapDisplay = document.getElementById('scrapDisplay');
+        const hullDisplay = document.getElementById('hullDisplay');
+        const systemsVisitedDisplay = document.getElementById('systemsVisitedDisplay');
+        const inventoryDisplay = document.getElementById('inventoryDisplay');
+        const eventModal = document.getElementById('eventModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalText = document.getElementById('modalText');
+        const modalChoicesContainer = document.getElementById('modalChoices');
+        const modalCloseButton = document.getElementById('modalCloseButton');
+        const solarSystemViewScreen = document.getElementById('solarSystemViewScreen');
+        const systemViewTitleOverlay = document.getElementById('systemViewTitleOverlay');
+        const systemImageContainer = document.getElementById('systemImageContainer');
+        const planetDetailsOverlay = document.getElementById('planetDetailsOverlay');
+        const planetDetailsList = document.getElementById('planetDetailsList');
+        const proceedFromSystemViewButton = document.getElementById('proceedFromSystemViewButton');
+        const titleScreen = document.getElementById('titleScreen');
+        const startGameButton = document.getElementById('startGameButton');
+        const gameContainer = document.getElementById('gameContainer');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const restartGameButton = document.getElementById('restartGameButton');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+
+        async function callImagenAPI(prompt) {
+            const payload = { instances: [{ prompt: prompt }], parameters: { "sampleCount": 1 } };
+            const apiKey = "";
+            if (!apiKey) {
+                console.error("Imagen API Key is missing! System view images will not generate.");
+                logEvent("API Warning", "Imagen API Key is missing. System view images will not generate.", "system-info-title");
+                throw new Error("Imagen API Key is not configured.");
+            }
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("Imagen API Error Response:", errorBody);
+                    throw new Error(`Imagen API request failed with status ${response.status}. Response: ${errorBody}`);
+                }
+                const result = await response.json();
+                if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                    return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                } else {
+                    console.error("Unexpected Imagen API response structure:", result);
+                    throw new Error("No image data received from Imagen API.");
+                }
+            } catch (error) {
+                console.error("Error calling Imagen API:", error);
+                throw error;
+            }
+        }
+
+        const EVENTS = [
+            {
+                id: "derelict_ship",
+                title: "Derelict Ship",
+                description: "You detect a derelict ship drifting nearby. It appears to be of an unknown configuration. Readings are faint, but there might be something valuable aboard.",
+                condition: (system) => true,
+                choices: [
+                    {
+                        text: "Investigate (Risky)",
+                        outcome: () => {
+                            const roll = Math.random();
+                            if (roll < 0.4) {
+                                const scrapFound = Math.floor(Math.random() * 30) + 10;
+                                gameState.playerResources.scrap += scrapFound;
+                                return `You carefully board the ship and find ${scrapFound} units of scrap!`;
+                            } else if (roll < 0.7) {
+                                const damage = Math.floor(Math.random() * 10) + 5;
+                                gameState.playerResources.hull -= Math.round(damage / gameState.shipUpgrades.hullStrength);
+                                if (gameState.playerResources.hull < 0) gameState.playerResources.hull = 0;
+                                return `A booby trap explodes! Your ship takes ${Math.round(damage / gameState.shipUpgrades.hullStrength)} hull damage.`;
+                            } else {
+                                return "The ship is picked clean. Nothing of value remains.";
+                            }
+                        }
+                    },
+                    { text: "Leave it", outcome: () => "You decide it's not worth the risk and continue on your way." }
+                ]
+            },
+            {
+                id: "asteroid_field_scan",
+                title: "Asteroid Field Scan",
+                description: () => {
+                    const systemName = gameState.ship.currentBeacon.solarSystem.name;
+                    return `The ${systemName} system has several rocky bodies. Your long-range scanners suggest potential for an asteroid belt or dense debris field.`;
+                },
+                condition: (system) => system && system.planets.some(p => p.type === "Barren Rock" || p.type === "Volcanic" || Math.random() < 0.2),
+                choices: [
+                    {
+                        text: "Scan for mineable asteroids (Cost: 3 Fuel)",
+                        outcome: () => {
+                            if (gameState.playerResources.fuel < 3) return "Not enough fuel to perform detailed scan.";
+                            gameState.playerResources.fuel -= 3;
+                            const roll = Math.random();
+                            if (roll < 0.6) {
+                                const scrapFound = Math.floor(Math.random() * 15) + 10;
+                                gameState.playerResources.scrap += scrapFound;
+                                return `Detailed scan reveals a small cluster! You mine ${scrapFound} scrap.`;
+                            } else {
+                                return "The scan reveals nothing but dust and ice. A waste of fuel.";
+                            }
+                        }
+                    },
+                    { text: "Ignore", outcome: () => "You decide not to spend fuel on a detailed scan." }
+                ]
+            },
+            {
+                id: "distress_signal",
+                title: "Distress Signal",
+                description: "A faint distress signal is detected from a nearby moon. It could be a trap, or someone genuinely in need.",
+                choices: [
+                    {
+                        text: "Investigate",
+                        outcome: () => {
+                            const roll = Math.random();
+                            if (roll < 0.3) {
+                                const damage = Math.floor(Math.random() * 15) + 10;
+                                gameState.playerResources.hull -= Math.round(damage / gameState.shipUpgrades.hullStrength);
+                                if (gameState.playerResources.hull < 0) gameState.playerResources.hull = 0;
+                                return `It was an ambush by pirates! Your ship takes ${Math.round(damage / gameState.shipUpgrades.hullStrength)} damage before you manage to escape.`;
+                            } else if (roll < 0.7) {
+                                const fuelReward = Math.floor(Math.random() * 10) + 5;
+                                gameState.playerResources.fuel += fuelReward;
+                                return `You find a stranded merchant who rewards you with ${fuelReward} fuel for your timely assistance.`;
+                            } else {
+                                return `The signal source is an old, automated beacon, long dead. Nothing here.`;
+                            }
+                        }
+                    },
+                    { text: "Ignore", outcome: () => "You decide the risk isn't worth it and ignore the signal." }
+                ]
+            },
+            {
+                id: "space_anomaly",
+                title: "Strange Anomaly",
+                description: "Your sensors pick up a bizarre energy reading. It's an anomaly of unknown type, shimmering faintly in the void.",
+                choices: [
+                    {
+                        text: "Scan the anomaly (Cost: 3 Fuel)",
+                        outcome: () => {
+                            if (gameState.playerResources.fuel < 3) return "Not enough fuel to conduct a proper scan.";
+                            gameState.playerResources.fuel -= 3;
+                            const roll = Math.random();
+                            if (roll < 0.25) {
+                                const scrapFound = Math.floor(Math.random() * 25) + 15;
+                                gameState.playerResources.scrap += scrapFound;
+                                return `The anomaly pulses, revealing a hidden cache of ${scrapFound} scrap!`;
+                            } else if (roll < 0.5) {
+                                return "The anomaly is fascinating, providing valuable sensor data for later study, but yields no tangible resources.";
+                            } else if (roll < 0.75) {
+                                const fuelLost = Math.floor(Math.random() * 5) + 1;
+                                gameState.playerResources.fuel -= fuelLost;
+                                if (gameState.playerResources.fuel < 0) gameState.playerResources.fuel = 0;
+                                return `The anomaly unexpectedly drains ${fuelLost} fuel from your ship!`;
+                            } else {
+                                const damage = Math.floor(Math.random() * 8) + 3;
+                                gameState.playerResources.hull -= Math.round(damage / gameState.shipUpgrades.hullStrength);
+                                if (gameState.playerResources.hull < 0) gameState.playerResources.hull = 0;
+                                return `The anomaly destabilizes briefly, causing ${Math.round(damage / gameState.shipUpgrades.hullStrength)} hull damage!`;
+                            }
+                        }
+                    },
+                    { text: "Avoid the anomaly", outcome: () => "You steer clear of the strange readings, not wanting to risk the unknown." }
+                ]
+            },
+            {
+                id: "merchant_encounter",
+                title: "Traveling Merchant",
+                description: "You encounter a heavily laden merchant vessel. They hail you, offering to trade goods.",
+                choices: [
+                    {
+                        text: "Trade (Buy 10 Fuel for 15 Scrap)",
+                        outcome: () => {
+                            if (gameState.playerResources.scrap < 15) return "Not enough scrap for this trade.";
+                            gameState.playerResources.scrap -= 15;
+                            gameState.playerResources.fuel += 10;
+                            return "Trade successful! You gained 10 Fuel.";
+                        }
+                    },
+                    {
+                        text: "Trade (Buy 5 Hull Repair for 20 Scrap)",
+                        outcome: () => {
+                            if (gameState.playerResources.scrap < 20) return "Not enough scrap for repairs.";
+                            if (gameState.playerResources.hull >= 100) return "Your hull is already at maximum!";
+                            gameState.playerResources.scrap -= 20;
+                            gameState.playerResources.hull += 5;
+                            if (gameState.playerResources.hull > 100) gameState.playerResources.hull = 100;
+                            return "Hull repaired by 5 points.";
+                        }
+                    },
+                    { text: "Decline", outcome: () => "You thank them for the offer and move on." }
+                ]
+            },
+            {
+                id: "nothing_event",
+                title: "Quiet Sector",
+                description: "The sector is eerily quiet. Your sensors pick up nothing out of the ordinary. You take a moment to recalibrate systems and enjoy the rare peace.",
+                choices: [{ text: "Continue", outcome: () => "Sometimes, silence is golden. You proceed to your next destination." }]
+            },
+            {
+                id: "minor_system_malfunction",
+                title: "Minor System Glitch",
+                description: "A warning light flickers on your console for the navigation system. It seems to be a minor sensor glitch, easily repairable.",
+                choices: [
+                    {
+                        text: "Repair (Cost: 5 Scrap)",
+                        outcome: () => {
+                            if (gameState.playerResources.scrap < 5) {
+                                return "You don't have enough scrap to fix this now.";
+                            }
+                            if (gameState.playerResources.hull >= 100) {
+                                return "Your systems are already optimal, no repairs needed for this glitch.";
+                            }
+                            gameState.playerResources.scrap -= 5;
+                            const hullRepaired = Math.floor(Math.random() * 6) + 5;
+                            gameState.playerResources.hull += hullRepaired;
+                            if (gameState.playerResources.hull > 100) gameState.playerResources.hull = 100;
+                            return `You successfully repair the system, restoring ${hullRepaired} hull points.`;
+                        }
+                    },
+                    {
+                        text: "Ignore and continue",
+                        outcome: () => {
+                            const damage = Math.floor(Math.random() * 3) + 1;
+                            gameState.playerResources.hull -= Math.round(damage / gameState.shipUpgrades.hullStrength);
+                            if (gameState.playerResources.hull < 0) gameState.playerResources.hull = 0;
+                            return `You ignored the glitch. It caused ${Math.round(damage / gameState.shipUpgrades.hullStrength)} hull damage.`;
+                        }
+                    }
+                ]
+            },
+            {
+                id: "planet_scan",
+                title: "Planetary Survey",
+                description: () => {
+                    const planet = gameState.ship.currentBeacon.solarSystem.planets[Math.floor(Math.random() * gameState.ship.currentBeacon.solarSystem.planets.length)];
+                    return `Scanners detect a ${planet.size} ${planet.type} in the ${gameState.ship.currentBeacon.solarSystem.name} system. A detailed survey might reveal resources.`;
+                },
+                condition: (system) => system.planets.length > 0,
+                choices: [
+                    {
+                        text: "Conduct Survey (Cost: 5 Fuel)",
+                        outcome: () => {
+                            if (gameState.playerResources.fuel < 5) return "Not enough fuel for survey.";
+                            gameState.playerResources.fuel -= 5;
+                            const roll = Math.random();
+                            if (roll < 0.5) {
+                                const itemId = Math.random() < 0.5 ? "repair_kit" : "fuel_cell";
+                                addToInventory(itemId);
+                                return `Survey complete! Found a ${ITEMS.find(i => i.id === itemId).name}.`;
+                            } else if (roll < 0.8) {
+                                const scrapFound = Math.floor(Math.random() * 20) + 10;
+                                gameState.playerResources.scrap += scrapFound;
+                                return `Survey reveals ${scrapFound} scrap in mineral deposits.`;
+                            } else {
+                                const damage = Math.floor(Math.random() * 5) + 3;
+                                gameState.playerResources.hull -= Math.round(damage / gameState.shipUpgrades.hullStrength);
+                                if (gameState.playerResources.hull < 0) gameState.playerResources.hull = 0;
+                                return `Survey mission encounters atmospheric interference, causing ${Math.round(damage / gameState.shipUpgrades.hullStrength)} hull damage.`;
+                            }
+                        }
+                    },
+                    { text: "Skip Survey", outcome: () => "You decide not to survey the planet." }
+                ]
+            },
+            {
+                id: "upgrade_station",
+                title: "Upgrade Station",
+                description: "You encounter a small orbital station offering ship upgrades for scrap.",
+                condition: (system) => Math.random() < 0.2,
+                choices: [
+                    {
+                        text: "Upgrade Fuel Efficiency (30 Scrap)",
+                        outcome: () => upgradeShip("fuelEfficiency")
+                    },
+                    {
+                        text: "Upgrade Hull Strength (50 Scrap)",
+                        outcome: () => upgradeShip("hullStrength")
+                    },
+                    { text: "Decline", outcome: () => "You pass by the station." }
+                ]
+            }
+        ];
+
+        canvas.width = CONFIG.canvasWidth;
+        canvas.height = CONFIG.canvasHeight;
+
+        function initializeGame() {
+            console.log("initializeGame called");
+            titleScreen.style.display = 'none';
+            gameContainer.style.display = 'flex';
+            canvas.style.display = 'block';
+            if (USER_SHIP_IMAGE_URL) {
+                gameState.ship.mapSprite.src = USER_SHIP_IMAGE_URL;
+                gameState.ship.mapSprite.onload = () => {
+                    gameState.ship.mapSpriteLoaded = true;
+                    gameState.ship.radius = Math.max(CONFIG.shipSpriteWidth, CONFIG.shipSpriteHeight) / 2;
+                    drawGame();
+                };
+                gameState.ship.mapSprite.onerror = () => {
+                    console.warn("Failed to load ship sprite. Using default circle.");
+                    gameState.ship.mapSpriteLoaded = false;
+                    drawGame();
+                };
+                gameState.ship.mapSpriteUrl = USER_SHIP_IMAGE_URL;
+            } else {
+                gameState.ship.mapSpriteLoaded = true;
+            }
+            generateBeaconData();
+            updateHUD();
+            drawGame();
+            logEvent("Game Start", "Your cosmic journey begins. Select a beacon to travel.");
+        }
+
+        function generateStarSystemName() {
+            const adj = STAR_NAMES_ADJ[Math.floor(Math.random() * STAR_NAMES_ADJ.length)];
+            const noun = STAR_NAMES_NOUN[Math.floor(Math.random() * STAR_NAMES_NOUN.length)];
+            return `${adj} ${noun} System`;
+        }
+
+        function generatePlanetDetails() {
+            const type = PLANET_TYPES[Math.floor(Math.random() * PLANET_TYPES.length)];
+            const size = PLANET_SIZES[Math.floor(Math.random() * PLANET_SIZES.length)];
+            const hasLife = Math.random() < 0.2;
+            const resources = Math.random() < 0.3 ? (Math.random() < 0.5 ? "abundant minerals" : "rare gases") : "none significant";
+            const atmosphere = (Math.random() < 0.6 ? Math.random() < 0.5 ? "breathable" : "toxic" : "none";
+            let description = `A ${size} ${type.name}, ${type.keywords}.`;
+            if (hasLife) description += ` Signs of indigenous lifeforms detected.`;
+            if (resources !== "none significant") description += ` ${resources.charAt(0).toUpperCase() + resources.slice(1)} detected.`;
+            if (atmosphere === "breathable") description += ` Atmosphere is breathable for humanoids.`;
+            else if (atmosphere === "toxic") description += ` Caution: Toxic atmosphere.`;
+            else description += ` No significant atmosphere.`;
+            return { type: type.name, size, hasLife, resources, atmosphere, description };
+        }
+
+        function generateBeaconData() {
+            for (let i = 0; i < CONFIG.numBeacons; i++) {
+                let x, y, tooClose;
+                do {
+                    x = Math.random() * CONFIG.canvasWidth;
+                    y = Math.random() * CONFIG.canvasHeight;
+                    tooClose = false;
+                    for (const beacon of gameState.beacons) {
+                        const dist = Math.sqrt((x - beacon.x)**2 + (y - beacon.y)**2);
+                        if (dist < CONFIG.minBeaconDistance) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                } while (tooClose);
+                const beacon = {
+                    x, y, id: i, connections: [], visited: false,
+                    solarSystem: { name: generateStarSystemName(), starType: STAR_TYPES[Math.floor(Math.random() * STAR_TYPES.length)], planets: [] }
+                };
+                const numPlanets = Math.floor(Math.random() * (CONFIG.maxPlanetsPerSystem - CONFIG.minPlanetsPerSystem + 1)) + CONFIG.minPlanetsPerSystem;
+                for (let p = 0; p < numPlanets; p++) {
+                    beacon.solarSystem.planets.push(generatePlanetDetails());
+                }
+                gameState.beacons.push(beacon);
+            }
+            for (let i = 0; i < gameState.beacons.length; i++) {
+                const beaconA = gameState.beacons[i];
+                const potentialConnections = [];
+                for (let j = 0; j < gameState.beacons.length; j++) {
+                    const beaconB = gameState.beacons[j];
+                    if (beaconA !== beaconB) {
+                        const dist = Math.sqrt((beaconA.x - beaconB.x)**2 + (beaconB.y - beaconB.y)**2);
+                        if (dist < CONFIG.minBeaconDistance * 3) {
+                            potentialConnections.push({ beacon: beaconB, dist: dist });
+                        }
+                    }
+                }
+                potentialConnections.sort((a, b) => a.dist - b.dist);
+                for (let k = 0; k < Math.min(potentialConnections.length, CONFIG.maxConnectionsPerBeacon); k++) {
+                    const connectedBeacon = potentialConnections[k].beacon;
+                    if (!beaconA.connections.includes(connectedBeacon) && !connectedBeacon.connections.includes(beaconA)) {
+                        beaconA.connections.push(connectedBeacon);
+                        connectedBeacon.connections.push(beaconA);
+                    }
+                }
+            }
+            const startBeacon = gameState.beacons[0];
+            const queue = [startBeacon];
+            const visited = new Set();
+            visited.add(startBeacon);
+            let head = 0;
+            while (head < queue.length) {
+                const current = queue[head++];
+                current.connections.forEach(connectedBeacon => {
+                    if (!visited.has(connectedBeacon)) {
+                        visited.add(connectedBeacon);
+                        queue.push(connectedBeacon);
+                    }
+                });
+            }
+            gameState.beacons.forEach(beacon => {
+                if (!visited.has(beacon)) {
+                    let closestVisited = null;
+                    let minDist = Infinity;
+                    visited.forEach(vBeacon => {
+                        const dist = Math.sqrt((beacon.x - vBeacon.x)**2 + (beacon.y - vBeacon.y)**2);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestVisited = vBeacon;
+                        }
+                    });
+                    if (closestVisited) {
+                        beacon.connections.push(closestVisited);
+                        closestVisited.connections.push(beacon);
+                        visited.add(beacon);
+                        queue.push(beacon);
+                        head = 0;
+                    }
+                }
+            });
+            gameState.ship.currentBeacon = gameState.beacons[0];
+            gameState.ship.x = gameState.ship.currentBeacon.x;
+            gameState.ship.y = gameState.ship.currentBeacon.y;
+            gameState.ship.currentBeacon.visited = true;
+            logEvent("System Info", `You are in the ${gameState.ship.currentBeacon.solarSystem.name} system.`);
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = CONFIG.connectionLineColor;
+            ctx.lineWidth = 1;
+            for (const beacon of gameState.beacons) {
+                for (const connectedBeacon of beacon.connections) {
+                    ctx.beginPath();
+                    ctx.moveTo(beacon.x, beacon.y);
+                    ctx.lineTo(connectedBeacon.x, connectedBeacon.y);
+                    ctx.stroke();
+                }
+            }
+            for (const beacon of gameState.beacons) {
+                ctx.beginPath();
+                ctx.arc(beacon.x, beacon.y, CONFIG.beaconRadius, 0, Math.PI * 2);
+                if (beacon === gameState.hoveredBeacon) {
+                    ctx.fillStyle = CONFIG.beaconHoverColor;
+                } else if (beacon.visited) {
+                    ctx.fillStyle = '#10b981';
+                } else {
+                    ctx.fillStyle = CONFIG.beaconColor;
+                }
+                ctx.fill();
+                ctx.strokeStyle = '#065f46';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            if (gameState.ship.mapSpriteLoaded && gameState.ship.mapSprite.src) {
+                const spriteX = gameState.ship.x - CONFIG.shipSpriteWidth / 2;
+                const spriteY = gameState.ship.y - CONFIG.shipSpriteHeight / 2;
+                ctx.drawImage(gameState.ship.mapSprite, spriteX, spriteY, CONFIG.shipSpriteWidth, CONFIG.shipSpriteHeight);
+            } else {
+                ctx.arc(gameState.ship.x, gameState.ship.y, gameState.ship.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gameState.ship.color;
+                ctx.fill();
+                ctx.strokeStyle = '#6d28d9';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function updateHUD() {
+            fuelDisplay.textContent = gameState.playerResources.fuel.toFixed(1);
+            scrapDisplay.textContent = gameState.playerResources.scrap;
+            hullDisplay.textContent = `${gameState.playerResources.hull}%`;
+            systemsVisitedDisplay.textContent = gameState.playerResources.systemsVisited;
+            inventoryDisplay.textContent = gameState.inventory.length > 0
+                ? gameState.inventory.map(item => item.name).join(", ")
+                : "None";
+            checkGameOver();
+        }
+
+        function logEvent(title, message, type = 'event-title') {
+            const p = document.createElement('p');
+            p.classList.add(type);
+            p.innerHTML = `<span class="${type}">${title}</span>: ${message}`;
+            eventLog.prepend(p);
+            if (eventLog.children.length > 50) {
+                eventLog.removeChild(eventLog.lastChild);
+            }
+        }
+
+        function animateShip() {
+            if (!gameState.ship.isMoving) return;
+            const target = gameState.ship.targetBeacon;
+            const dx = target.x - gameState.ship.x;
+            const dy = target.y - gameState.ship.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < CONFIG.shipSpeed) {
+                gameState.ship.x = target.x;
+                gameState.ship.y = target.y;
+                gameState.ship.isMoving = false;
+                gameState.ship.currentBeacon = target;
+                gameState.ship.currentBeacon.visited = true;
+                gameState.playerResources.systemsVisited++;
+                handleArrivalAtBeacon();
+            } else {
+                gameState.ship.x += (dx / distance) * CONFIG.shipSpeed;
+                gameState.ship.y += (dy / distance) * CONFIG.shipSpeed;
+                requestAnimationFrame(animateShip);
+            }
+            drawGame();
+        }
+
+        function handleArrivalAtBeacon() {
+            logEvent("Arrival", `Arrived at ${gameState.ship.currentBeacon.solarSystem.name}.`);
+            updateHUD();
+            showSolarSystemView(gameState.ship.currentBeacon.solarSystem);
+        }
+
+        function showSolarSystemView(system) {
+            solarSystemViewScreen.classList.add('active');
+            canvas.style.display = 'none';
+            systemViewTitleOverlay.textContent = system.name;
+            systemImageContainer.innerHTML = '<span class="loading-text-system">Generating System View...</span>';
+            planetDetailsList.innerHTML = '';
+            gameState.isGeneratingSystemImage = true;
+            let prompt = `A highly detailed, realistic, top-down view of the ${system.name} system. The central star is a ${system.starType}. `;
+            if (system.planets.length > 0) {
+                prompt += `It has ${system.planets.length} planets: `;
+                system.planets.forEach((planet, index) => {
+                    prompt += `${planet.size} ${planet.type}${index < system.planets.length - 1 ? ', ' : '.'}`;
+                });
+                prompt += ` Show varied planetary bodies, nebulae, and subtle cosmic dust. Space, high resolution, astronomical photography, sci-fi concept art.`;
+            } else {
+                prompt += `No significant planets or celestial bodies detected, mostly empty space with some distant nebulae. Deep space, realistic, astronomical photography, sci-fi concept art.`;
+            }
+            callImagenAPI(prompt)
+                .then(imageUrl => {
+                    const img = new Image();
+                    img.src = imageUrl;
+                    img.onload = () => {
+                        systemImageContainer.innerHTML = '';
+                        systemImageContainer.appendChild(img);
+                        gameState.currentSystemImage = img;
+                        gameState.isGeneratingSystemImage = false;
+                        proceedFromSystemViewButton.disabled = false;
+                    };
+                    img.onerror = () => {
+                        console.error("Failed to load generated system image. Displaying fallback.");
+                        systemImageContainer.innerHTML = '<span class="loading-text-system">Failed to load image. (Check API Key?)</span>';
+                        gameState.isGeneratingSystemImage = false;
+                        proceedFromSystemViewButton.disabled = false;
+                    };
+                })
+                .catch(error => {
+                    console.error("Error generating system image:", error);
+                    systemImageContainer.innerHTML = '<span class="loading-text-system">Error generating image.</span>';
+                    gameState.isGeneratingSystemImage = false;
+                    proceedFromSystemViewButton.disabled = false;
+                });
+            if (system.planets.length > 0) {
+                system.planets.forEach(planet => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${planet.size} ${planet.type}:</strong> ${planet.description}`;
+                    planetDetailsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = "No planets detected in this system.";
+                planetDetailsList.appendChild(li);
+            }
+            proceedFromSystemViewButton.disabled = true;
+        }
+
+        function hideSolarSystemView() {
+            solarSystemViewScreen.classList.remove('active');
+            canvas.style.display = 'block';
+            drawGame();
+            triggerRandomEvent();
+        }
+
+        function triggerRandomEvent() {
+            const applicableEvents = EVENTS.filter(event =>
+                !event.condition || (typeof event.condition === 'function' ? event.condition(gameState.ship.currentBeacon.solarSystem) : event.condition)
+            );
+            if (applicableEvents.length === 0) {
+                logEvent("System Info", "No significant events detected in this system.");
+                return;
+            }
+            const randomEvent = applicableEvents[Math.floor(Math.random() * applicableEvents.length)];
+            modalTitle.textContent = randomEvent.title;
+            modalText.textContent = typeof randomEvent.description === 'function' ? randomEvent.description() : randomEvent.description;
+            modalChoicesContainer.innerHTML = '';
+            if (randomEvent.choices && randomEvent.choices.length > 0) {
+                modalCloseButton.style.display = 'none';
+                randomEvent.choices.forEach(choice => {
+                    const choiceButton = document.createElement('div');
+                    choiceButton.classList.add('event-choice');
+                    choiceButton.textContent = choice.text;
+                    choiceButton.onclick = () => {
+                        const outcomeMessage = choice.outcome();
+                        logEvent("Outcome", outcomeMessage);
+                        updateHUD();
+                        eventModal.classList.remove('active');
+                        modalCloseButton.style.display = 'block';
+                        modalCloseButton.onclick = () => {
+                            eventModal.classList.remove('active');
+                            modalCloseButton.onclick = null;
+                        };
+                    };
+                    modalChoicesContainer.appendChild(choiceButton);
+                });
+            } else {
+                modalCloseButton.style.display = 'block';
+                modalCloseButton.onclick = () => {
+                    eventModal.classList.remove('active');
+                    modalCloseButton.onclick = null;
+                };
+            }
+            eventModal.classList.add('active');
+        }
+
+        function addToInventory(itemId) {
+            if (gameState.inventory.length >= CONFIG.maxInventoryItems) {
+                logEvent("Warning", "Inventory full! Cannot add item.", "system-info-title");
+                return false;
+            }
+            const item = ITEMS.find(i => i.id === itemId);
+            if (item) {
+                gameState.inventory.push(item);
+                updateHUD();
+                logEvent("Item Acquired", `Added ${item.name} to inventory.`);
+                return true;
+            }
+            return false;
+        }
+
+        function useItem(itemId) {
+            const index = gameState.inventory.findIndex(i => i.id === itemId);
+            if (index === -1) return "Item not found in inventory.";
+            const item = gameState.inventory[index];
+            let outcome = "";
+            if (item.id === "repair_kit") {
+                if (gameState.playerResources.hull >= 100) {
+                    outcome = "Hull is already at maximum!";
+                } else {
+                    gameState.playerResources.hull = Math.min(100, gameState.playerResources.hull + 10);
+                    outcome = "Used Repair Kit: Restored 10 hull points.";
+                }
+            } else if (item.id === "fuel_cell") {
+                gameState.playerResources.fuel += 15;
+                outcome = "Used Fuel Cell: Gained 15 fuel units.";
+            }
+            gameState.inventory.splice(index, 1);
+            updateHUD();
+            return outcome;
+        }
+
+        function upgradeShip(type) {
+            if (type === "fuelEfficiency" && gameState.playerResources.scrap >= CONFIG.upgradeCost.fuelEfficiency) {
+                gameState.playerResources.scrap -= CONFIG.upgradeCost.fuelEfficiency;
+                gameState.shipUpgrades.fuelEfficiency += 0.2;
+                logEvent("Upgrade", "Fuel efficiency upgraded! Jumps now cost less fuel.");
+            } else if (type === "hullStrength" && gameState.playerResources.scrap >= CONFIG.upgradeCost.hullStrength) {
+                gameState.playerResources.scrap -= CONFIG.upgradeCost.hullStrength;
+                gameState.shipUpgrades.hullStrength += 0.3;
+                logEvent("Upgrade", "Hull strength upgraded! Damage taken reduced.");
+            } else {
+                logEvent("Warning", "Not enough scrap for this upgrade!", "system-info-title");
+            }
+            updateHUD();
+        }
+
+        function checkGameOver() {
+            if (gameState.playerResources.hull <= 0 || gameState.playerResources.fuel <= 0) {
+                gameOverScreen.style.display = 'flex';
+                canvas.style.display = 'none';
+                solarSystemViewScreen.style.display = 'none';
+                eventModal.style.display = 'none';
+                gameOverMessage.textContent = gameState.playerResources.hull <= 0
+                    ? "Your ship's
